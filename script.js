@@ -6,28 +6,30 @@ const TELEGRAM_CHAT_ID = "-5068849115";
 
 // ======================================================
 // SESSION COUNTER (AUTO-RESET AFTER 2 MINUTES)
-// Uses cloud storage to sync across ALL devices
+// Uses Pantry Cloud - FREE, no API key needed
 // ======================================================
 const RESET_INTERVAL = 120000; // 2 minutes in milliseconds
 
-// JSONBin.io configuration - FREE cloud JSON storage
-const JSONBIN_BIN_ID = "6952b00bd0ea881f4047cbe4";
-const JSONBIN_API_KEY = "$2a$10$pqI1AZwW7833PS70JgiH8uYLymDYjGAP4BwNqswjqzpxFLW3VXhfu";
+// Pantry Cloud configuration - Get your ID at https://getpantry.cloud
+// Just enter your email and copy the Pantry ID
+const PANTRY_ID = "b7b66651-b8f0-44bf-9aac-c6e19c31c922";
+const BASKET_NAME = "sessionCounter";
 
 async function getSessionNumber() {
     const now = Date.now();
     
     try {
-        // Fetch current counter from cloud
-        const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
-            headers: {
-                'X-Access-Key': JSONBIN_API_KEY
-            }
-        });
+        // Fetch current counter from Pantry
+        const response = await fetch(`https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`);
         
-        const data = await response.json();
-        let sessionCounter = data.record.counter || 0;
-        let lastTimestamp = data.record.timestamp || 0;
+        let sessionCounter = 0;
+        let lastTimestamp = 0;
+        
+        if (response.ok) {
+            const data = await response.json();
+            sessionCounter = data.counter || 0;
+            lastTimestamp = data.timestamp || 0;
+        }
         
         // Reset counter if more than 2 minutes have passed
         if (now - lastTimestamp > RESET_INTERVAL) {
@@ -37,12 +39,11 @@ async function getSessionNumber() {
         // Increment counter
         sessionCounter++;
         
-        // Save updated counter to cloud
-        await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
-            method: 'PUT',
+        // Save updated counter to Pantry
+        await fetch(`https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`, {
+            method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-Access-Key': JSONBIN_API_KEY
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 counter: sessionCounter,
