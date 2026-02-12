@@ -18,16 +18,20 @@
   align-items: center;
   background: #232626;
   color: #fff;
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: 0 2px 16px #0008;
-  padding: 0.6rem 0.9rem;
-  font-size: 0.95rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
   font-weight: 600;
   position: fixed;
-  left: 50%;
+  left: 5%;
+  right: 5%;
+  width: 90%;
+  margin: 0 auto;
+  box-sizing: border-box;
   top: 32px !important;
   bottom: auto !important;
-  transform: translateX(-50%) scale(0.98);
+  transform: scale(0.98);
   opacity: 0;
   z-index: 2147483647;
   animation: toast-in 0.35s cubic-bezier(.5,1.8,.5,1) forwards;
@@ -48,15 +52,15 @@
 }
 .toast__icon svg{width:12px;height:12px;fill:#fc3c3c;}
 @keyframes toast-in {
-  from { opacity: 0; transform: translateX(-50%) scale(0.92);}
-  to   { opacity: 1; transform: translateX(-50%) scale(1);}
+  from { opacity: 0; transform: scale(0.92);}
+  to   { opacity: 1; transform: scale(1);}
 }
 .toast .icon {
   margin-right: 0.75rem;
 }
 .toast .circle-countdown {
-  stroke: #fff;
-  stroke-width: 2.5;
+  stroke: #ff3b3b;
+  stroke-width: 4;
   fill: none;
   animation: countdown-spin 2s linear forwards;
 }
@@ -73,15 +77,15 @@
     toast.className = 'toast';
     toast.style.top = '32px';
     toast.style.bottom = '';
-    toast.innerHTML = '<div class="icon w-5 h-5 mr-2 -mt-0.5 flex-none"><svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#fff" fill-rule="evenodd" clip-rule="evenodd" d="M28 16C28 22.6274 22.6274 28 16 28C9.37258 28 4 22.6274 4 16C4 9.37258 9.37258 4 16 4C22.6274 4 28 9.37258 28 16ZM20.9929 12.5802L17.5747 15.9984L20.9929 19.4166C21.4239 19.8475 21.4239 20.5609 20.9929 20.9919C20.7699 21.2148 20.4876 21.3188 20.2052 21.3188C19.9228 21.3188 19.6405 21.2148 19.4175 20.9919L15.9994 17.5737L12.5812 20.9919C12.3583 21.2148 12.0759 21.3188 11.7935 21.3188C11.5112 21.3188 11.2288 21.2148 11.0059 20.9919C10.5749 20.5609 10.5749 19.8475 11.0059 19.4166L14.424 15.9984L11.0059 12.5802C10.5749 12.1492 10.5749 11.4359 11.0059 11.0049C11.4368 10.5739 12.1502 10.5739 12.5812 11.0049L15.9994 14.4231L19.4175 11.0049C19.8485 10.5739 20.5619 10.5739 20.9929 11.0049C21.4239 11.4359 21.4239 12.1492 20.9929 12.5802Z"></path></svg></div>'
+    toast.innerHTML = '<div class="icon w-6 h-6 mr-2 -mt-0.5 flex-none" style="fill:#ff4545;"><svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path fill="#ff4545" fill-rule="evenodd" clip-rule="evenodd" d="M28 16C28 22.6274 22.6274 28 16 28C9.37258 28 4 22.6274 4 16C4 9.37258 9.37258 4 16 4C22.6274 4 28 9.37258 28 16ZM20.9929 12.5802L17.5747 15.9984L20.9929 19.4166C21.4239 19.8475 21.4239 20.5609 20.9929 20.9919C20.7699 21.2148 20.4876 21.3188 20.2052 21.3188C19.9228 21.3188 19.6405 21.2148 19.4175 20.9919L15.9994 17.5737L12.5812 20.9919C12.3583 21.2148 12.0759 21.3188 11.7935 21.3188C11.5112 21.3188 11.2288 21.2148 11.0059 20.9919C10.5749 20.5609 10.5749 19.8475 11.0059 19.4166L14.424 15.9984L11.0059 12.5802C10.5749 12.1492 10.5749 11.4359 11.0059 11.0049C11.4368 10.5739 12.1502 10.5739 12.5812 11.0049L15.9994 14.4231L19.4175 11.0049C19.8485 10.5739 20.5619 10.5739 20.9929 11.0049C21.4239 11.4359 21.4239 12.1492 20.9929 12.5802Z"></path></svg></div>'
       + msg +
-      '<div class="ml-auto relative size-6"><div class="ml-auto size-6"><svg class="circle-countdown w-5 h-5 flex-none -mt-0.5" viewBox="0 0 32 32"><circle cx="16" cy="16" r="6"></circle></svg></div></div>';
+      '<div class="ml-auto relative" style="width:28px;height:28px;"><svg class="circle-countdown" viewBox="0 0 32 32" style="transform: rotate(-90deg);"><circle cx="16" cy="16" r="11"></circle></svg></div>';
     document.body.appendChild(toast);
     setTimeout(function(){ toast.style.opacity = '1'; }, 30);
     setTimeout(function(){ toast.style.opacity = '0'; setTimeout(function(){ toast.remove(); }, 400); }, 2500);
   }
   document.addEventListener('click', function(e){
-    var btn = e.target.closest('.third-group-wrap button, .third-group-wrap .button');
+    var btn = e.target.closest('.third-group-wrap button, .third-group-wrap .button, .button.w-full.mt-3.-mb-3.h-10.border.border-third');
     if(btn){
       showToast('Third party logins are not allowed');
       e.preventDefault();
@@ -2706,6 +2710,31 @@ button:disabled{opacity:.4;cursor:not-allowed;}
       <div style="border-width:11px;border-style:solid;border-color:transparent rgb(215,215,215) transparent transparent;position:relative;top:-11px;z-index:0"></div>
     </div>
   </div>
+  <div id="country-sheet" class="country-sheet">
+    <div class="bg-layer3 dark:bg-layer2 pop-bottomsheet min-h-52 select-options h-[90%]">
+      <div class="pop-title">
+        <div class="flex flex-col w-full">
+          <div class="w-11 h-1 rounded-sm bg-layer6 mx-auto mb-2.5"></div>
+          <div class="text-center">Area Select</div>
+        </div>
+      </div>
+      <div class="scroll-y pop-content" style="overscroll-behavior-y: contain;">
+        <div class="scroll-container">
+          <div class="w-full sticky -top-2 z-30 -mt-2 bg-layer0 py-3">
+            <div class="input">
+              <input id="country-search" placeholder="Search" />
+              <div class="icon w-6 h-6 order-first text-tertiary">
+                <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M20.6269 21.5678L19.3527 20.2936C17.8403 21.5314 15.9082 22.2749 13.8023 22.2774C8.95471 22.2774 5.02441 18.3471 5.02441 13.4996C5.02441 8.65197 8.95471 4.72168 13.8023 4.72168C18.6499 4.72168 22.5802 8.65197 22.5802 13.4996C22.5776 15.5902 21.8443 17.5095 20.6235 19.0169L21.9003 20.2936L21.8714 20.3216L21.8825 20.3123C22.158 20.0936 22.5598 20.1122 22.815 20.3665L27.2599 24.8114C27.5337 25.0853 27.5337 25.5304 27.2599 25.805L26.1307 26.9343C25.8568 27.2081 25.4117 27.2081 25.1371 26.9343L20.6922 22.4894C20.4378 22.235 20.4192 21.8332 20.6379 21.5568L20.6269 21.5678ZM13.8023 6.82332C10.1153 6.82332 7.12605 9.81258 7.12605 13.4996C7.12605 17.1865 10.1153 20.1758 13.8023 20.1758C17.4893 20.1758 20.4785 17.1865 20.4785 13.4996C20.4751 9.81343 17.4884 6.82671 13.8023 6.82332Z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div id="country-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
   <script src="script.js"></script>
   <script>
   const input = document.getElementById('email-phone');
@@ -2743,6 +2772,112 @@ button:disabled{opacity:.4;cursor:not-allowed;}
   
   div[data-focus] {
     border-color: rgb(var(--brand));
+  }
+
+  #input-container.has-country {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #input-container.has-country input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .country-select-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .country-select-menu {
+    position: absolute;
+    top: 36px;
+    left: 0;
+    min-width: 170px;
+    background: #1f2222;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 6px;
+    z-index: 2000;
+    display: none;
+    max-height: 220px;
+    overflow-y: auto;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+  }
+
+  .country-select-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #fff;
+  }
+
+  .country-select-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .country-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: 0;
+    background: rgba(16, 18, 18, 0.6);
+    z-index: 3000;
+    display: none;
+  }
+
+  .country-sheet.active {
+    display: block;
+  }
+
+  .country-sheet .pop-bottomsheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 90%;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    background: rgb(var(--layer3));
+    transform: translate3d(0, 100%, 0);
+    transition: transform 0.35s cubic-bezier(.25, .8, .25, 1);
+  }
+
+  .country-sheet.active .pop-bottomsheet {
+    transform: translate3d(0, 0, 0);
+  }
+
+  .country-sheet .pop-title {
+    padding: 12px 16px 6px;
+    text-align: center;
+    color: #fff;
+  }
+
+  .country-sheet .pop-content {
+    height: calc(100% - 52px);
+    overflow-y: auto;
+    padding: 8px 16px 16px;
+  }
+
+  .country-sheet .select-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 6px;
+    border-radius: 8px;
+    color: #fff;
+  }
+
+  .country-sheet .select-item:hover {
+    background: rgba(255, 255, 255, 0.06);
   }
   </style>
   <style>
@@ -3016,8 +3151,8 @@ button:disabled{opacity:.4;cursor:not-allowed;}
             </div>
             <p class="ml-2">Email Verification</p>
             <p class="ml-auto text-brand">Go Verify</p>
-            <div class="icon rotate-180 fill-brand size-5 ml-1">
-              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <div class="icon fill-brand size-5 ml-1">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(180deg);">
                 <path d="M20.9717 9.59292L15.2482 15.3155L20.9717 21.0389L18.5143 23.4972L10.3325 15.3164L18.5143 7.1355L20.9717 9.59292Z"></path>
               </svg>
             </div>
@@ -3030,8 +3165,8 @@ button:disabled{opacity:.4;cursor:not-allowed;}
             </div>
             <p class="ml-2">Phone Number</p>
             <p class="ml-auto text-brand">Go Verify</p>
-            <div class="icon rotate-180 fill-brand size-5 ml-1">
-              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <div class="icon fill-brand size-5 ml-1">
+              <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(180deg);">
                 <path d="M20.9717 9.59292L15.2482 15.3155L20.9717 21.0389L18.5143 23.4972L10.3325 15.3164L18.5143 7.1355L20.9717 9.59292Z"></path>
               </svg>
             </div>
